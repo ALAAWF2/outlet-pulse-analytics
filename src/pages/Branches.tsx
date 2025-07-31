@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { KPICard } from "@/components/dashboard/KPICard";
-import { extendedSampleData, regionalData } from "@/data/extendedSampleData";
+import { useData } from "@/hooks/useData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -13,16 +13,35 @@ const Branches = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRegion, setSelectedRegion] = useState<string>('all');
   const [selectedManager, setSelectedManager] = useState<string>('all');
+  const { data } = useData();
 
   // Get unique managers and regions
-  const uniqueManagers = Array.from(new Set(extendedSampleData.areas.map(area => area["Area Manager"])));
-  const uniqueRegions = Array.from(new Set(regionalData.map(region => region.region)));
+  const getRegion = (name: string) => {
+    if (name.includes('Riyadh')) return 'Riyadh';
+    if (name.includes('Jeddah')) return 'Jeddah';
+    if (name.includes('Dammam') || name.includes('Khobar') || name.includes('Dhahran')) return 'Eastern Province';
+    if (name.includes('Mecca')) return 'Mecca';
+    if (name.includes('Medina')) return 'Medina';
+    return 'Other Regions';
+  };
+
+  const uniqueManagers = useMemo(() =>
+    data ? Array.from(new Set(data.areas.map(area => area["area manager"]))) : []
+  , [data]);
+
+  const uniqueRegions = useMemo(() => {
+    if (!data) return [] as string[];
+    const set = new Set<string>();
+    data.areas.forEach(a => set.add(getRegion(a["Outlet Name"])));
+    return Array.from(set);
+  }, [data]);
 
   // Calculate branch performance data
   const branchesData = useMemo(() => {
-    const branchPerformance = extendedSampleData.areas.map(area => {
+    if (!data) return [] as Array<Record<string, unknown>>;
+    const branchPerformance = data.areas.map(area => {
       const branchName = area["Outlet Name"];
-      const manager = area["Area Manager"];
+      const manager = area["area manager"];
       
       // Get region
       let region = 'Other Regions';
@@ -33,25 +52,25 @@ const Branches = () => {
       else if (branchName.includes('Medina')) region = 'Medina';
       
       // Calculate sales for this branch
-      const branchSales2025 = extendedSampleData.sales
-        .filter(sale => sale["Outlet Name"] === branchName && sale.Year === 2025)
-        .reduce((sum, sale) => sum + sale["Sales Amount"], 0);
+      const branchSales2025 = data.sales
+        .filter(sale => sale["Outlet Name"] === branchName && sale.YEAR === 2025)
+        .reduce((sum, sale) => sum + sale["Bill Amount"], 0);
       
-      const branchSales2024 = extendedSampleData.sales
-        .filter(sale => sale["Outlet Name"] === branchName && sale.Year === 2024)
-        .reduce((sum, sale) => sum + sale["Sales Amount"], 0);
+      const branchSales2024 = data.sales
+        .filter(sale => sale["Outlet Name"] === branchName && sale.YEAR === 2024)
+        .reduce((sum, sale) => sum + sale["Bill Amount"], 0);
       
       // Calculate visitors and invoices
-      const visitors = extendedSampleData.sales
-        .filter(sale => sale["Outlet Name"] === branchName && sale.Year === 2025)
-        .reduce((sum, sale) => sum + sale.Visitors, 0);
+      const visitors = data.sales
+        .filter(sale => sale["Outlet Name"] === branchName && sale.YEAR === 2025)
+        .reduce((sum, sale) => sum + sale.visitors, 0);
       
-      const invoices = extendedSampleData.sales
-        .filter(sale => sale["Outlet Name"] === branchName && sale.Year === 2025)
-        .reduce((sum, sale) => sum + sale.Invoices, 0);
+      const invoices = data.sales
+        .filter(sale => sale["Outlet Name"] === branchName && sale.YEAR === 2025)
+        .reduce((sum, sale) => sum + sale["No Of Bills"], 0);
       
       // Get target
-      const target = extendedSampleData["yearly target"]
+      const target = data["yearly target"]
         .find(t => t["Outlet Name"] === branchName)?.["Target Amount"] || 0;
       
       const growth = branchSales2024 > 0 ? ((branchSales2025 - branchSales2024) / branchSales2024) * 100 : 0;
@@ -85,7 +104,17 @@ const Branches = () => {
       
       return matchesSearch && matchesRegion && matchesManager;
     });
-  }, [searchTerm, selectedRegion, selectedManager]);
+  }, [data, searchTerm, selectedRegion, selectedManager]);
+
+  const regionalData = useMemo(() => {
+    if (!data) return [] as Array<{ region: string; branches: number }>;
+    const map = new Map<string, number>();
+    data.areas.forEach(area => {
+      const region = getRegion(area["Outlet Name"]);
+      map.set(region, (map.get(region) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([region, count]) => ({ region, branches: count }));
+  }, [data]);
 
   // Calculate summary KPIs
   const summaryKpis = useMemo(() => {
