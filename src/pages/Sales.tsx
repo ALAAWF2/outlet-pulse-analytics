@@ -4,7 +4,7 @@ import { KPICard } from "@/components/dashboard/KPICard";
 import { SalesChart } from "@/components/dashboard/SalesChart";
 import { YearOverYearComparison } from "@/components/dashboard/YearOverYearComparison";
 import { OutletFilter } from "@/components/dashboard/OutletFilter";
-import { extendedSampleData } from "@/data/extendedSampleData";
+import { useData } from "@/hooks/useData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { TrendingUp, Calendar, DollarSign, Users } from "lucide-react";
@@ -12,37 +12,49 @@ import { TrendingUp, Calendar, DollarSign, Users } from "lucide-react";
 const Sales = () => {
   const [selectedOutlet, setSelectedOutlet] = useState<string | undefined>();
   const [selectedManager, setSelectedManager] = useState<string | undefined>();
+  const { data } = useData();
 
   // Calculate sales-specific KPIs
   const salesKpis = useMemo(() => {
-    const filteredSales = selectedOutlet 
-      ? extendedSampleData.sales.filter(sale => sale["Outlet Name"] === selectedOutlet)
-      : extendedSampleData.sales;
+    if (!data) return {
+      currentYearSales: 0,
+      previousYearSales: 0,
+      growthPercentage: 0,
+      dailyAverage: 0,
+      bestDay: 0,
+      worstDay: Infinity,
+      bestDayDate: '',
+      worstDayDate: '',
+    };
+
+    const filteredSales = selectedOutlet
+      ? data.sales.filter(sale => sale["Outlet Name"] === selectedOutlet)
+      : data.sales;
 
     const currentYear = 2025;
     const previousYear = 2024;
     
     const currentYearSales = filteredSales
-      .filter(sale => sale.Year === currentYear)
-      .reduce((sum, sale) => sum + sale["Sales Amount"], 0);
+      .filter(sale => sale.YEAR === currentYear)
+      .reduce((sum, sale) => sum + sale["Bill Amount"], 0);
     
     const previousYearSales = filteredSales
-      .filter(sale => sale.Year === previousYear)
-      .reduce((sum, sale) => sum + sale["Sales Amount"], 0);
+      .filter(sale => sale.YEAR === previousYear)
+      .reduce((sum, sale) => sum + sale["Bill Amount"], 0);
     
     const growthPercentage = previousYearSales > 0 
       ? ((currentYearSales - previousYearSales) / previousYearSales) * 100 
       : 0;
 
     // Daily averages
-    const currentYearDays = new Set(filteredSales.filter(s => s.Year === currentYear).map(s => s.DATE)).size;
+    const currentYearDays = new Set(filteredSales.filter(s => s.YEAR === currentYear).map(s => s.DATE)).size;
     const dailyAverage = currentYearDays > 0 ? currentYearSales / currentYearDays : 0;
 
     // Best and worst performing days
     const dailySales = new Map();
-    filteredSales.filter(s => s.Year === currentYear).forEach(sale => {
+    filteredSales.filter(s => s.YEAR === currentYear).forEach(sale => {
       const date = sale.DATE;
-      dailySales.set(date, (dailySales.get(date) || 0) + sale["Sales Amount"]);
+      dailySales.set(date, (dailySales.get(date) || 0) + sale["Bill Amount"]);
     });
 
     const salesByDay = Array.from(dailySales.entries());
@@ -59,13 +71,14 @@ const Sales = () => {
       bestDayDate: bestDay[0],
       worstDayDate: worstDay[0]
     };
-  }, [selectedOutlet]);
+  }, [selectedOutlet, data]);
 
   // Prepare trend data
   const trendData = useMemo(() => {
-    const filteredSales = selectedOutlet 
-      ? extendedSampleData.sales.filter(sale => sale["Outlet Name"] === selectedOutlet)
-      : extendedSampleData.sales;
+    if (!data) return [] as Array<{ date: string; sales2024: number; sales2025: number }>;
+    const filteredSales = selectedOutlet
+      ? data.sales.filter(sale => sale["Outlet Name"] === selectedOutlet)
+      : data.sales;
 
     const salesByDate = new Map();
     
@@ -76,17 +89,18 @@ const Sales = () => {
       }
       
       const entry = salesByDate.get(date);
-      if (sale.Year === 2024) {
-        entry.sales2024 += sale["Sales Amount"];
-      } else if (sale.Year === 2025) {
-        entry.sales2025 += sale["Sales Amount"];
+      if (sale.YEAR === 2024) {
+        entry.sales2024 += sale["Bill Amount"];
+      } else if (sale.YEAR === 2025) {
+        entry.sales2025 += sale["Bill Amount"];
       }
     });
     
     return Array.from(salesByDate.values()).sort((a, b) => 
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
-  }, [selectedOutlet]);
+    return Array.from(salesByDate.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [selectedOutlet, data]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -111,13 +125,15 @@ const Sales = () => {
     >
       {/* Filters */}
       <div className="mb-6">
-        <OutletFilter
-          areas={extendedSampleData.areas}
-          selectedOutlet={selectedOutlet}
-          onOutletChange={setSelectedOutlet}
-          selectedManager={selectedManager}
-          onManagerChange={setSelectedManager}
-        />
+        {data && (
+          <OutletFilter
+            areas={data.areas}
+            selectedOutlet={selectedOutlet}
+            onOutletChange={setSelectedOutlet}
+            selectedManager={selectedManager}
+            onManagerChange={setSelectedManager}
+          />
+        )}
       </div>
 
       {/* Sales KPIs */}
@@ -151,11 +167,13 @@ const Sales = () => {
 
       {/* Main Sales Chart */}
       <div className="mb-6">
-        <SalesChart
-          salesData={extendedSampleData.sales}
-          targetData={extendedSampleData["daily target"]}
-          selectedOutlet={selectedOutlet}
-        />
+        {data && (
+          <SalesChart
+            salesData={data.sales}
+            targetData={data["daily target"]}
+            selectedOutlet={selectedOutlet}
+          />
+        )}
       </div>
 
       {/* Sales Trend Analysis */}
@@ -215,11 +233,15 @@ const Sales = () => {
           </CardContent>
         </Card>
 
-        <YearOverYearComparison salesData={
-          selectedOutlet 
-            ? extendedSampleData.sales.filter(sale => sale["Outlet Name"] === selectedOutlet)
-            : extendedSampleData.sales
-        } />
+        {data && (
+          <YearOverYearComparison
+            salesData={
+              selectedOutlet
+                ? data.sales.filter(sale => sale["Outlet Name"] === selectedOutlet)
+                : data.sales
+            }
+          />
+        )}
       </div>
 
       {/* Detailed Sales Metrics */}

@@ -1,45 +1,47 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CustomerSatisfaction } from "@/components/dashboard/CustomerSatisfaction";
 import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown";
-import { extendedSampleData, categories, customerSatisfaction, regionalData } from "@/data/extendedSampleData";
+import { useData } from "@/hooks/useData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, LineChart, Line, Legend } from 'recharts';
 import { BarChart3, Users, TrendingUp, Calendar, Clock, Activity } from "lucide-react";
 import { useMemo } from "react";
 
 const Analytics = () => {
+  const { data } = useData();
   // Advanced analytics calculations
   const analyticsData = useMemo(() => {
+    if (!data) return { performanceCorrelation: [], topManagers: [], dailyTrends: [] };
     // Performance correlation between visitors and sales
-    const performanceCorrelation = extendedSampleData.sales
-      .filter(sale => sale.Year === 2025)
+    const performanceCorrelation = data.sales
+      .filter(sale => sale.YEAR === 2025)
       .map(sale => ({
-        visitors: sale.Visitors,
-        sales: sale["Sales Amount"],
-        invoices: sale.Invoices,
-        efficiency: sale.Visitors > 0 ? sale["Sales Amount"] / sale.Visitors : 0,
+        visitors: sale.visitors,
+        sales: sale["Bill Amount"],
+        invoices: sale["No Of Bills"],
+        efficiency: sale.visitors > 0 ? sale["Bill Amount"] / sale.visitors : 0,
         outlet: sale["Outlet Name"].replace(/^\d+-/, '')
       }));
 
     // Manager performance radar data
-    const managerPerformance = extendedSampleData.areas.map(area => {
-      const managerSales = extendedSampleData.sales
-        .filter(sale => sale["Outlet Name"] === area["Outlet Name"] && sale.Year === 2025)
-        .reduce((sum, sale) => sum + sale["Sales Amount"], 0);
+    const managerPerformance = data.areas.map(area => {
+      const managerSales = data.sales
+        .filter(sale => sale["Outlet Name"] === area["Outlet Name"] && sale.YEAR === 2025)
+        .reduce((sum, sale) => sum + sale["Bill Amount"], 0);
       
-      const managerVisitors = extendedSampleData.sales
-        .filter(sale => sale["Outlet Name"] === area["Outlet Name"] && sale.Year === 2025)
-        .reduce((sum, sale) => sum + sale.Visitors, 0);
+      const managerVisitors = data.sales
+        .filter(sale => sale["Outlet Name"] === area["Outlet Name"] && sale.YEAR === 2025)
+        .reduce((sum, sale) => sum + sale.visitors, 0);
       
-      const managerInvoices = extendedSampleData.sales
-        .filter(sale => sale["Outlet Name"] === area["Outlet Name"] && sale.Year === 2025)
-        .reduce((sum, sale) => sum + sale.Invoices, 0);
+      const managerInvoices = data.sales
+        .filter(sale => sale["Outlet Name"] === area["Outlet Name"] && sale.YEAR === 2025)
+        .reduce((sum, sale) => sum + sale["No Of Bills"], 0);
 
-      const target = extendedSampleData["yearly target"]
+      const target = data["yearly target"]
         .find(t => t["Outlet Name"] === area["Outlet Name"])?.["Target Amount"] || 0;
 
       return {
-        manager: area["Area Manager"],
+        manager: area["area manager"],
         sales: managerSales,
         visitors: managerVisitors,
         invoices: managerInvoices,
@@ -51,7 +53,7 @@ const Analytics = () => {
     });
 
     // Aggregate manager data
-    const managerAggregate = {};
+    const managerAggregate: Record<string, { manager: string; sales: number; visitors: number; invoices: number; target: number; branches: number }> = {};
     managerPerformance.forEach(mp => {
       if (!managerAggregate[mp.manager]) {
         managerAggregate[mp.manager] = {
@@ -70,8 +72,8 @@ const Analytics = () => {
       managerAggregate[mp.manager].branches += 1;
     });
 
-    const topManagers = Object.values(managerAggregate)
-      .map((manager: any) => ({
+    const topManagers = (Object.values(managerAggregate) as Array<{ manager: string; sales: number; visitors: number; invoices: number; target: number; branches: number }> )
+      .map((manager) => ({
         ...manager,
         achievement: manager.target > 0 ? (manager.sales / manager.target) * 100 : 0,
         avgSalesPerBranch: manager.branches > 0 ? manager.sales / manager.branches : 0,
@@ -81,21 +83,21 @@ const Analytics = () => {
       .slice(0, 6);
 
     // Time-based performance analysis
-    const timeAnalysis = extendedSampleData.sales
-      .filter(sale => sale.Year === 2025)
+    const timeAnalysis = data.sales
+      .filter(sale => sale.YEAR === 2025)
       .reduce((acc, sale) => {
         const day = sale.Day;
         if (!acc[day]) {
           acc[day] = { day, totalSales: 0, totalVisitors: 0, totalInvoices: 0, count: 0 };
         }
-        acc[day].totalSales += sale["Sales Amount"];
-        acc[day].totalVisitors += sale.Visitors;
-        acc[day].totalInvoices += sale.Invoices;
+        acc[day].totalSales += sale["Bill Amount"];
+        acc[day].totalVisitors += sale.visitors;
+        acc[day].totalInvoices += sale["No Of Bills"];
         acc[day].count += 1;
         return acc;
       }, {});
 
-    const dailyTrends = Object.values(timeAnalysis).map((day: any) => ({
+    const dailyTrends = Object.values(timeAnalysis).map((day: { day: number; totalSales: number; totalVisitors: number; totalInvoices: number; count: number }) => ({
       day: day.day,
       avgSales: day.totalSales / day.count,
       avgVisitors: day.totalVisitors / day.count,
@@ -108,7 +110,82 @@ const Analytics = () => {
       topManagers,
       dailyTrends
     };
-  }, []);
+  }, [data]);
+
+  const getRegion = (name: string) => {
+    if (name.includes('Riyadh')) return 'Riyadh';
+    if (name.includes('Jeddah')) return 'Jeddah';
+    if (name.includes('Dammam') || name.includes('Khobar') || name.includes('Dhahran')) return 'Eastern Province';
+    if (name.includes('Mecca')) return 'Mecca';
+    if (name.includes('Medina')) return 'Medina';
+    return 'Other Regions';
+  };
+
+  const regionalData = useMemo(() => {
+    if (!data) return [] as Array<{ region: string; branches: number; sales: number; target: number; achievement: number }>;
+    const map = new Map<string, { branches: Set<string>; sales: number; target: number }>();
+    data.areas.forEach(a => {
+      const region = getRegion(a["Outlet Name"]);
+      if (!map.has(region)) map.set(region, { branches: new Set(), sales: 0, target: 0 });
+      map.get(region)!.branches.add(a["Outlet Name"]);
+    });
+    data.sales.forEach(s => {
+      if (s.YEAR === 2025) {
+        const region = getRegion(s["Outlet Name"]);
+        const entry = map.get(region);
+        if (entry) entry.sales += s["Bill Amount"];
+      }
+    });
+    data["yearly target"].forEach(t => {
+      const region = getRegion(t["Outlet Name"]);
+      const entry = map.get(region);
+      if (entry) entry.target += t["Target Amount"];
+    });
+    return Array.from(map.entries()).map(([region, val]) => ({
+      region,
+      branches: val.branches.size,
+      sales: val.sales,
+      target: val.target,
+      achievement: val.target > 0 ? (val.sales / val.target) * 100 : 0,
+    }));
+  }, [data]);
+
+  const categories = useMemo(() => {
+    const colors = [
+      'hsl(var(--chart-primary))',
+      'hsl(var(--chart-secondary))',
+      'hsl(var(--chart-tertiary))',
+      'hsl(var(--chart-quaternary))',
+      'hsl(var(--accent))',
+    ];
+    const total = regionalData.reduce((s, r) => s + r.sales, 0);
+    return regionalData.map((r, i) => ({
+      name: r.region,
+      percentage: total ? (r.sales / total) * 100 : 0,
+      amount: r.sales,
+      color: colors[i % colors.length],
+    }));
+  }, [regionalData]);
+
+  const customerSatisfaction = useMemo(() => {
+    if (!data) return { overall: 0, categories: [] as Array<{ name: string; rating: number; percentage: number }> };
+    const sales = data.sales.filter(s => s.YEAR === 2025);
+    const avgVisitorsRate = sales.reduce((s, v) => s + v["visitors rate"], 0) / sales.length || 0;
+    const avgBillRate = sales.reduce((s, v) => s + v["bill rate"], 0) / sales.length || 0;
+    const avgSalesRate = sales.reduce((s, v) => s + v["sales rate"], 0) / sales.length || 0;
+    const avgConversion = sales.reduce((s, v) => s + (v["No Of Bills"] / (v.visitors || 1)), 0) / sales.length || 0;
+    const avgInvoiceValue = sales.reduce((s, v) => s + (v["Bill Amount"] / (v["No Of Bills"] || 1)), 0) / sales.length || 0;
+    const toRating = (val: number, max: number) => Math.min(5, Math.max(0, (val / max) * 5));
+    const cats = [
+      { name: 'Service', rating: toRating(avgConversion, 1), percentage: toRating(avgConversion, 1) * 20 },
+      { name: 'Cleanliness and Hygiene', rating: toRating(avgVisitorsRate, 1), percentage: toRating(avgVisitorsRate, 1) * 20 },
+      { name: 'Freshness and Quality', rating: toRating(avgBillRate, 300), percentage: toRating(avgBillRate, 300) * 20 },
+      { name: 'Affordable', rating: toRating(avgInvoiceValue, 500), percentage: toRating(avgInvoiceValue, 500) * 20 },
+      { name: 'Availability and Accessibility', rating: toRating(avgSalesRate, 100), percentage: toRating(avgSalesRate, 100) * 20 },
+    ];
+    const overall = Math.round((cats.reduce((s, c) => s + c.rating, 0) / cats.length) * 20);
+    return { overall, categories: cats };
+  }, [data]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {

@@ -1,5 +1,5 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Area } from "@/data/sampleData";
+import { Area } from "@/types/data";
 
 interface OutletFilterProps {
   areas: Area[];
@@ -16,9 +16,9 @@ export const OutletFilter = ({
   selectedManager, 
   onManagerChange 
 }: OutletFilterProps) => {
-  const uniqueManagers = Array.from(new Set(areas.map(area => area["Area Manager"])));
-  const filteredOutlets = selectedManager 
-    ? areas.filter(area => area["Area Manager"] === selectedManager)
+  const uniqueManagers = Array.from(new Set(areas.map(area => area["area manager"])));
+  const filteredOutlets = selectedManager
+    ? areas.filter(area => area["area manager"] === selectedManager)
     : areas;
 
   return (
