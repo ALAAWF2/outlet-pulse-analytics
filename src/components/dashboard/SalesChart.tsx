@@ -1,9 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Sales, DailyTarget } from "@/data/sampleData";
+import { Sale, DailyTarget } from "@/types/data";
 
 interface SalesChartProps {
-  salesData: Sales[];
+  salesData: Sale[];
   targetData: DailyTarget[];
   selectedOutlet?: string;
 }
@@ -35,11 +35,11 @@ export const SalesChart = ({ salesData, targetData, selectedOutlet }: SalesChart
       }
       
       const entry = dataMap.get(date);
-      if (sale.Year === 2024) {
-        entry.sales2024 += sale["Sales Amount"];
-      } else if (sale.Year === 2025) {
-        entry.sales2025 += sale["Sales Amount"];
-        entry.visitors += sale.Visitors;
+      if (sale.YEAR === 2024) {
+        entry.sales2024 += sale["Bill Amount"];
+      } else if (sale.YEAR === 2025) {
+        entry.sales2025 += sale["Bill Amount"];
+        entry.visitors += sale.visitors;
       }
     });
     
@@ -47,7 +47,7 @@ export const SalesChart = ({ salesData, targetData, selectedOutlet }: SalesChart
     filteredTargets.forEach(target => {
       const date = target.DATE;
       if (dataMap.has(date)) {
-        dataMap.get(date).target += target.Target;
+        dataMap.get(date).target += target.target;
       }
     });
     
@@ -136,5 +136,3 @@ export const SalesChart = ({ salesData, targetData, selectedOutlet }: SalesChart
     </Card>
   );
 };
-
-import React from 'react';

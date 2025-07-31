@@ -1,21 +1,21 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { Sales } from "@/data/sampleData";
+import { Sale } from "@/types/data";
 
 interface BranchDistributionProps {
-  salesData: Sales[];
+  salesData: Sale[];
   year?: number;
 }
 
 export const BranchDistribution = ({ salesData, year = 2025 }: BranchDistributionProps) => {
   const chartData = React.useMemo(() => {
-    const filteredData = salesData.filter(sale => sale.Year === year);
+    const filteredData = salesData.filter(sale => sale.YEAR === year);
     const salesByBranch = new Map();
     
     filteredData.forEach(sale => {
       const outlet = sale["Outlet Name"];
       const current = salesByBranch.get(outlet) || 0;
-      salesByBranch.set(outlet, current + sale["Sales Amount"]);
+      salesByBranch.set(outlet, current + sale["Bill Amount"]);
     });
     
     return Array.from(salesByBranch.entries()).map(([outlet, sales]) => ({
@@ -42,7 +42,7 @@ export const BranchDistribution = ({ salesData, year = 2025 }: BranchDistributio
     }).format(value);
   };
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { fullName: string }; value: number }> }) => {
     if (active && payload && payload.length) {
       const data = payload[0];
       return (
@@ -107,5 +107,3 @@ export const BranchDistribution = ({ salesData, year = 2025 }: BranchDistributio
     </Card>
   );
 };
-
-import React from 'react';

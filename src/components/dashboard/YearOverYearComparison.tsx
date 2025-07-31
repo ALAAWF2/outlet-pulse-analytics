@@ -1,10 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Sales } from "@/data/sampleData";
+import { Sale } from "@/types/data";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
 interface YearOverYearComparisonProps {
-  salesData: Sales[];
+  salesData: Sale[];
 }
 
 export const YearOverYearComparison = ({ salesData }: YearOverYearComparisonProps) => {
@@ -18,10 +18,10 @@ export const YearOverYearComparison = ({ salesData }: YearOverYearComparisonProp
       }
       
       const entry = salesByOutlet.get(outlet);
-      if (sale.Year === 2024) {
-        entry.sales2024 += sale["Sales Amount"];
-      } else if (sale.Year === 2025) {
-        entry.sales2025 += sale["Sales Amount"];
+      if (sale.YEAR === 2024) {
+        entry.sales2024 += sale["Bill Amount"];
+      } else if (sale.YEAR === 2025) {
+        entry.sales2025 += sale["Bill Amount"];
       }
     });
     
@@ -41,7 +41,7 @@ export const YearOverYearComparison = ({ salesData }: YearOverYearComparisonProp
     }).format(value);
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ payload: { sales2024: number; sales2025: number; growth: number; difference: number } }>; label?: string }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
@@ -138,5 +138,3 @@ export const YearOverYearComparison = ({ salesData }: YearOverYearComparisonProp
     </Card>
   );
 };
-
-import React from 'react';
